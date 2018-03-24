@@ -76,23 +76,12 @@ class Promises
   }
 
   /**
-   * Determines if the scheduled commands are executed atomically (in a transaction).
-   *
-   * @return bool
-   */
-  public function is_atomic()
-  {
-    return
-      is_a($this->client, \Predis\Pipeline\Atomic::class) || is_a($this->client, \Predis\Pipeline\Transaction::class);
-  }
-
-  /**
    * Determines if execute() has been invoked yet.
    *
    * @return bool
    * @see \Deferred\Promises::execute()
    */
-  public function has_executed()
+  public function hasExecuted()
   {
     return $this->has_executed;
   }
@@ -103,7 +92,7 @@ class Promises
    * @return bool
    * @see \Deferred\Promises::execute()
    */
-  public function are_fulfilled()
+  public function areFulfilled()
   {
     return $this->has_executed && isset($this->responses);
   }
@@ -114,7 +103,7 @@ class Promises
    * @return bool
    * @see \Deferred\Promises::execute()
    */
-  public function has_failed()
+  public function hasFailed()
   {
     return $this->has_executed && !isset($this->responses);
   }
@@ -190,17 +179,7 @@ class Promises
   public function reduce(\Deferred\Future ...$futures)
   {
     // paranoia doesn't mean they're not out to get you
-    foreach ($futures as $future) {
-      if ($future->parent() != $this)
-        throw new \InvalidArgumentException('\Deferred\Future must be child of reducing \Deferred\Promises');
-
-      if (in_array($future, $futures))
-        throw new \InvalidArgumentException('Duplicate \Deferred\Future passed to \Deferred\Promises::reduce()');
-    }
-
-    $future_count = count($futures);
-    if ($future_count <= 1)
-      throw new \InvalidArgumentException('\Deferred\Promises::reduce() requires more than one \Deferred\Future');
+    $future_count = $this->verifyReducingFutures($futures);
 
     // reduce() generates an "orphaned" Future that's fed responses from the supplied Futures ...
     // $reduced is intentionally NOT included in the $this->futures array (although it maintains a
@@ -214,7 +193,7 @@ class Promises
     foreach ($futures as $future) {
       // note that a reference to $responses is held by each lambda (as it's shared between them)
       // while the current value of $idx is "assigned" to each lambda via pass-by-value syntax
-      $future->on_fulfilled(function ($result) use ($reduced, $future_count, &$responses, $idx) {
+      $future->onFulfilled(function ($result) use ($reduced, $future_count, &$responses, $idx) {
         // add response to the index corresponding to its respective Future
         $responses[$idx] = $result;
 
@@ -230,5 +209,32 @@ class Promises
     }
 
     return $reduced;
+  }
+
+  /**
+   * Verifies the list of Futures are suitable for reduction.
+   *
+   * @param array $futures
+   * @throws \InvalidArgumentException
+   * @returns int Number of futures being reduced
+   */
+  private function verifyReducingFutures(array $futures)
+  {
+    $future_count = count($futures);
+    if ($future_count <= 1)
+      throw new \InvalidArgumentException('\Deferred\Promises::reduce() requires more than one \Deferred\Future');
+
+    $accepted = [];
+    foreach ($futures as $future) {
+      if ($future->parent() != $this)
+        throw new \InvalidArgumentException('\Deferred\Future must be child of reducing \Deferred\Promises');
+
+      if (in_array($future, $accepted, true))
+        throw new \InvalidArgumentException('Duplicate \Deferred\Future passed to \Deferred\Promises::reduce()');
+
+      $accepted[] = $future;
+    }
+
+    return $future_count;
   }
 }

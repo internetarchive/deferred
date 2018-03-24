@@ -44,7 +44,7 @@ class Future
    *
    * @return boolean
    */
-  public function is_fulfilled()
+  public function isFulfilled()
   {
     return $this->is_fulfilled;
   }
@@ -56,11 +56,11 @@ class Future
    *
    * @return mixed
    * @throws \Deferred\NotAllowedException If unfulfilled
-   * @see \Deferred\Future::raw_value()
+   * @see \Deferred\Future::rawValue()
    */
   public function value()
   {
-    if (!$this->is_fulfilled())
+    if (!$this->isFulfilled())
       throw new \Deferred\NotAllowedException('Cannot get result of unfulfilled \Deferred\Future');
 
     return $this->value;
@@ -73,9 +73,9 @@ class Future
    * @throws \Deferred\NotAllowedException If unfulfilled
    * @see \Deferred\Future::value()
    */
-  public function raw_value()
+  public function rawValue()
   {
-    if (!$this->is_fulfilled())
+    if (!$this->isFulfilled())
       throw new \Deferred\NotAllowedException('Cannot get result of unfulfilled \Deferred\Future');
 
     return $this->raw_value;
@@ -91,7 +91,7 @@ class Future
    */
   public function fulfill($response)
   {
-    if ($this->is_fulfilled())
+    if ($this->isFulfilled())
       throw new \Deferred\NotAllowedException('Attempted to fulfilled already-fulfilled \Deferred\Future');
 
     // store original raw value
@@ -102,7 +102,7 @@ class Future
       $response = call_user_func($transformer, $response);
 
     // store response; the future has arrived
-    $this->result = $response;
+    $this->value = $response;
     $this->is_fulfilled = true;
 
     // if bound to an external PHP variable, store result there as well
@@ -110,11 +110,11 @@ class Future
     // Q. Why can't bind() merely assign $this->result a reference to the external reference?
     // A. External code could later modify the external variable and cause an internal change to
     // \Deferred\Future which should always hold the true response.
-    $this->binding = $this->result;
+    $this->binding = $this->value;
 
     // notify fulfillment listeners
     foreach ($this->listeners as $listener)
-      call_user_func($listener, $this->result);
+      call_user_func($listener, $this->value);
   }
 
   /**
@@ -135,7 +135,7 @@ class Future
    */
   public function bind(&$ref)
   {
-    if ($this->is_fulfilled())
+    if ($this->isFulfilled())
       throw new \Deferred\NotAllowedException('Cannot bind to result after fulfillment');
 
     // see fulfill() for more information on this mechanism
@@ -157,12 +157,12 @@ class Future
    * transformer, and so on.
    *
    * The final transformed value is stored by \Deferred\Future and obtainable via value().  The
-   * original response is obtainable via raw_value().
+   * original response is obtainable via rawValue().
    *
    * If a transformer throws an Exception the Future will remain unfulfilled.
    *
    * $transformer call signature:
-   *   mixed do_transform(mixed $response)
+   *   mixed doTransform(mixed $response)
    *
    * @param callable $transformer
    * @return RedisFuture This instance
@@ -185,7 +185,7 @@ class Future
    * @param callable $listener
    * @return \Deferred\Future This instance
    */
-  public function on_fulfilled(callable $listener)
+  public function onFulfilled(callable $listener)
   {
     $this->listeners[] = $listener;
 
