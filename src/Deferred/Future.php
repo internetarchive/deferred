@@ -39,7 +39,10 @@ class Future
   private $listeners = [];
 
   /**
+   * To be used only by Promises.
+   *
    * @param \Deferred\Promises $parent
+   * @see \Deferred\Promises
    */
   public function __construct(\Deferred\Promises $parent)
   {
@@ -109,14 +112,23 @@ class Future
   public function fulfill($response)
   {
     if ($this->isFulfilled())
-      throw new \Deferred\NotAllowedException('Attempted to fulfilled already-fulfilled \Deferred\Future');
+      throw new \Deferred\NotAllowedException('Attempted to fulfill already-fulfilled \Deferred\Future');
 
     // store original raw value
     $this->raw_value = $response;
 
     // run response through transformer chain, if any
-    foreach ($this->transformers as $transformer)
-      $response = call_user_func($transformer, $response);
+    foreach ($this->transformers as $transformer) {
+      try {
+        $response = call_user_func($transformer, $response);
+      } catch (\Exception $e) {
+        // preferable if transformers didn't throw Exceptions, but need to be safe here ... the
+        // Future goes unfulfilled but the Exception is not propagated upwards.
+        //
+        // TODO: Reporting / logging mechanism for this situation
+        return;
+      }
+    }
 
     // store response; the future has arrived
     $this->value = $response;
@@ -124,14 +136,24 @@ class Future
 
     // if bound to an external PHP variable, store result there as well
     //
-    // Q. Why can't bind() merely assign $this->result a reference to the external reference?
+    // Q. Why can't bind() merely assign $this->value a reference to the external reference?
     // A. External code could later modify the external variable and cause an internal change to
     // \Deferred\Future which should always hold the true response.
     $this->binding = $this->value;
 
     // notify fulfillment listeners
-    foreach ($this->listeners as $listener)
-      call_user_func($listener, $this->value);
+    foreach ($this->listeners as $listener) {
+      try {
+        call_user_func($listener, $this->value);
+      } catch (\Exception $e) {
+        // like transformers, can't have listeners throw Exceptions and cause problems elsewhere ...
+        // unlike transformers (where each transformer provides input for the next), can merely
+        // drop one listener's Exception and give the others a chance to process the fulfilled
+        // value
+        //
+        // TODO: Reporting / logging mechanism
+      }
+    }
   }
 
   /**

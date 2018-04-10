@@ -24,18 +24,19 @@ namespace Deferred;
  *
  * Like a Predis Client object, Promises can perform any Redis command (GET, HSET, ZADD, etc.) via
  * a dynamic calling interface (->get(), ->hset(), ->zadd(), etc.)  However, all commands are
- * scheduled (rather than performed immediately).  The commands only occur when the execute()
- * method is invoked.
+ * scheduled rather than performed immediately.  The commands only occur when the execute()
+ * method is invoked.  In this sense, Promises is akin to Predis' transactions and pipelines.
  *
  * Unlike Predis trasactions or pipelines, Promises returns a \Deferred\Future object for each
- * scheduled command.  See documentation for Future for more information on how callers may
- * transform and receive responses once the commands are executed.
+ * scheduled command.  These Future objects are fulfilled with the Redis response value once
+ * execute() has been invoked successfully.  See documentation for Future for more information on
+ * how callers may transform and be notified of responses upon fulfillment.
  *
  * @example
- *  $hget = $promises->hget('key');
- *  $hget->transform(function ($val) { return strrev($val); }); // reverse the value
+ *  $hget_future = $promises->hget('key');
+ *  $hget_future->transform(function ($val) { return strrev($val); }); // reverse the value
  *  $promises->execute();
- *  $reversed = $hget->value(); // returns the reversed string
+ *  $reversed = $hget_future->value(); // returns the reversed string
  *
  * @see \Deferred\Future
  */
@@ -178,12 +179,13 @@ class Promises
    * Reduce multiple \Deferred\Futures into a single \Deferred\Future.
    *
    * reduce() is a variadic method accepting \Deferred\Futures as arguments.  All Futures *must*
-   * have this Promises instance as their parent.
+   * have this Promises instance as their parent.  In turn, reduce() returns a single
+   * \Deferred\Future object which is fulfilled when all the supplied Futures are fulfilled.
    *
    * At least two Futures must be supplied.  Duplicates are not allowed.
    *
    * When the reduced Future is fulfilled, it will receive an array representing all combined
-   * results stored in the same order as the Futures supplied to this function.  Thus, a parser
+   * results stored in the same order as the Futures supplied to this function.  Thus, a transformer
    * may be installed on the reduced Future to further process this group of results.
    *
    * For example, an operation which determines if a value "is present" might reduce several
@@ -196,7 +198,7 @@ class Promises
   public function reduce(\Deferred\Future ...$futures)
   {
     // paranoia doesn't mean they're not out to get you
-    $future_count = $this->verifyReducingFutures($futures);
+    $future_count = $this->canReduceFutures($futures);
 
     // reduce() generates an "orphaned" Future that's fed responses from the supplied Futures ...
     // $reduced is intentionally NOT included in the $this->futures array (although it maintains a
@@ -235,7 +237,7 @@ class Promises
    * @throws \InvalidArgumentException
    * @returns int Number of futures being reduced
    */
-  private function verifyReducingFutures(array $futures)
+  private function canReduceFutures(array $futures)
   {
     $future_count = count($futures);
     if ($future_count <= 1)
