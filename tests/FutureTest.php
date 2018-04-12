@@ -17,8 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-require 'vendor/autoload.php';
-require 'src/Deferred/Autoloader.php';
+require_once 'vendor/autoload.php';
+require_once 'src/Deferred/Autoloader.php';
 \Deferred\Autoloader::register();
 
 /**
@@ -36,7 +36,7 @@ class FutureTest extends PHPUnit\Framework\TestCase
   public function setUp()
   {
     $client = new Predis\Client();
-    $this->promises = new \Deferred\Promises($client->pipeline());
+    $this->promises = new \Deferred\PromisesPipeline($client);
   }
 
   //

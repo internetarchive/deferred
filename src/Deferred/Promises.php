@@ -34,13 +34,13 @@ namespace Deferred;
  *
  * @example
  *  $hget_future = $promises->hget('key');
- *  $hget_future->transform(function ($val) { return strrev($val); }); // reverse the value
+ *  $hget_future->transform('strrev'); // reverse the value
  *  $promises->execute();
  *  $reversed = $hget_future->value(); // returns the reversed string
  *
  * @see \Deferred\Future
  */
-class Promises
+abstract class Promises
 {
   private $client;
   private $futures = [];
@@ -50,20 +50,12 @@ class Promises
   /**
    * Create a \Deferred\Promises object for a Predis transaction or pipeline.
    *
-   * A Predis Client object can create three different types of ClientContextInterface objects:
-   * - $predis->transaction()
-   * - $predis->pipeline()
-   * - $predis->pipeline(['atomic' => true]);
-   * See the documentation for more information on each type of client.
-   *
    * NOTE: Do *not* initialize Promises with a "fire-and-forget" ClientContextInterface.
    *
    * @param \Predis\ClientContextInterface $client
    * @throws \InvalidArgumentException If $client is fire-and-forget
-   * @see http://squizzle.me/php/predis/doc/Classes#pipeline
-   * @see http://squizzle.me/php/predis/doc/Classes#transaction-array
    */
-  public function __construct(\Predis\ClientContextInterface $client)
+  protected function __construct(\Predis\ClientContextInterface $client)
   {
     if (is_a($client, \Predis\Pipeline\FireAndForget::class))
       throw new \InvalidArgumentException('\Deferred\Promises does not support fire-and-forget pipelines');

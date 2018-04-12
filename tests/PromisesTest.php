@@ -17,8 +17,8 @@
  * along with this program.  If not, see <http://www.gnu.org/licenses/>.
  */
 
-require 'vendor/autoload.php';
-require 'src/Deferred/Autoloader.php';
+require_once 'vendor/autoload.php';
+require_once 'src/Deferred/Autoloader.php';
 \Deferred\Autoloader::register();
 
 /**
@@ -41,10 +41,8 @@ class PromisesTest extends PHPUnit\Framework\TestCase
     $this->client = new \Predis\Client();
   }
 
-  private function basicPromisesTest($cci)
+  private function basicPromisesTest(\Deferred\Promises $promises)
   {
-    $promises = new \Deferred\Promises($cci);
-
     $set = $promises->set('deferred:string', 'gnusto');
     $get = $promises->get('deferred:string');
 
@@ -59,22 +57,22 @@ class PromisesTest extends PHPUnit\Framework\TestCase
 
   public function testPipeline()
   {
-    $this->basicPromisesTest($this->client->pipeline());
+    $this->basicPromisesTest(new \Deferred\PromisesPipeline($this->client));
   }
 
   public function testTransaction()
   {
-    $this->basicPromisesTest($this->client->transaction());
+    $this->basicPromisesTest(new \Deferred\PromisesTransaction($this->client));
   }
 
   public function testAtomic()
   {
-    $this->basicPromisesTest($this->client->pipeline(['atomic' => true]));
+    $this->basicPromisesTest(new \Deferred\AtomicPromisesPipeline($this->client));
   }
 
   public function testStateFunctions()
   {
-    $promises = new \Deferred\Promises($this->client->pipeline());
+    $promises = new \Deferred\PromisesPipeline($this->client);
 
     $this->assertFalse($promises->hasExecuted());
     $this->assertFalse($promises->areFulfilled());
@@ -95,14 +93,14 @@ class PromisesTest extends PHPUnit\Framework\TestCase
    */
   public function testDoubleExecute()
   {
-    $promises = new \Deferred\Promises($this->client->pipeline());
+    $promises = new \Deferred\PromisesPipeline($this->client);
     $promises->execute();
     $promises->execute();
   }
 
   public function testReduce()
   {
-    $promises = new \Deferred\Promises($this->client->pipeline());
+    $promises = new \Deferred\PromisesPipeline($this->client);
 
     $promises->set('abc', 'value0');
     $promises->set('def', 'value1');
