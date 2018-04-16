@@ -204,7 +204,7 @@ class Future
    *   mixed doTransform(mixed $response)
    *
    * @param callable $transformer
-   * @return RedisFuture This instance
+   * @return \Deferred\Future This instance
    */
   public function transform(callable $transformer)
   {
