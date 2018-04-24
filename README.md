@@ -8,7 +8,7 @@
 
 Deferred is a promises/futures PHP library for use with [Redis](https://redis.io) (via the [Predis client library](https://github.com/nrk/predis/)).  Deferred was presented at RedisConf 2018 in San Francisco.
 
-Predis supports multiple methods of scheduling operations so they may be issued to the server in batches: pipelines, transactions, and atomic pipelines.  Deferred builds on top of these methods by binding operation results to Future objects which may be monitored the client code.
+Predis supports multiple methods of scheduling operations so they may be issued to the server in batches: pipelines, transactions, and atomic pipelines.  Deferred builds on top of these methods by binding operation results to Future objects which may be monitored by the client code.
 
 Deferred has been tested on PHP 7 and Predis v.1.1.  It should work with older versions of PHP (with some caveats) and recent versions of Predis.
 
@@ -42,7 +42,7 @@ $pipe = $redis->pipeline();
 
 // schedule HGETALL / SISMEMBER / SISMEMBER, no I/O yet
 $pipe->hgetall('user:ackbar');
-$pipe->sismember('friends:of:jeff', 'ackbar');
+$pipe->sismember('brothers:of:jeff', 'ackbar');
 $pipe->sismember('partners:of:jeff', 'ackbar');
 $pipe->get('avatar:ackbar');
 
@@ -51,12 +51,12 @@ $results = $pipe->execute();
 
 // results are stored in array ordered by command
 $user_profile = $results[0];
-$is_friend = $results[1];
+$is_brother = $results[1];
 $is_partner = $results[2];
 $avatar = base64_decode($results[3]);
 ```
 
-The same set of operations using Deferred promises/futures:
+The same set of operations using Deferred promises & futures (a Deferred pipeline is created by instantiating `\Deferred\PromisesPipeline`):
 
 ```php
 $redis = new \Predis\Client();
@@ -64,7 +64,7 @@ $promises = new \Deferred\PromisesPipeline($redis);
 
 // schedule HGETALL / SISMEMBER / SISMEMBER, no I/O yet, each call returns a \Deferred\Future
 $future_user_profile = $promises->hgetall('user:ackbar');
-$future_is_friend = $promises->sismember('friends:of:jeff', 'ackbar');
+$future_is_brother = $promises->sismember('brothers:of:jeff', 'ackbar');
 $future_is_partner = $promises->sismember('partners:of:jeff', 'ackbar');
 $future_avatar = $promises->get('user:ackbar');
 
@@ -73,7 +73,7 @@ $results = $promises->execute();
 
 // results are stored in \Deferred\Future objects
 $user_profile = $future_user_profile->value();
-$is_friend = $future_is_friend->value();
+$is_brother = $future_is_brother->value();
 $is_partner = $future_is_partner->value();
 $avatar = base64_decode($future_avatar->value());
 ```
@@ -82,15 +82,13 @@ Note that the Future object is _not_ the Redis result value but merely a contain
 
 ### Transactions & atomic pipelines
 
-The prior examples show how to use Deferred with Predis' pipelines (non-transactional code executed in a single round-trip to the server).  A Deferred pipeline is created by instantiating `\Deferred\PromisesPipeline`.
-
 Deferred offers two other types of Promises:
 
 __PromisesTransaction__ are for Redis MULTI/EXEC transactions.  Each scheduled command requires a round-trip to the server prior to execution.
 
 __AtomicPromisesPipeline__ are for pipelined MULTI/EXEC transactions.  All commands are scheduled locally before executing on the server.  Unlike a plain pipeline, an atomic pipeline is transactional.
 
-Deciding which Promises object to use depends on the operations being scheduled.  See the Redis and Predis documentation for more information.
+Deciding which Promises object to use depends on the operations being scheduled and atomicity requirements.  See the Redis and Predis documentation for more information.
 
 ### Binding to a result
 
@@ -122,12 +120,12 @@ $promises->execute();
 
 Here `\Deferred\Future::transform()` and `Deferred\Future::bind()` are being used in conjunction.  When the avatar image is pulled from Redis, the transformation function will Base64 decode it and return the binary image.  The `$avatar` variable will receive the decoded image.
 
-Multiple transformations may be attached to a Future.  Transformations are processed in registration order.  Here the avatar is Base64 decoded and then uncompressed:
+Multiple transformations may be attached to a Future.  Transformations are processed in registration order.  Here the avatar is uncomprssed and then Base64 decoded:
 
 ```php
 $future = $promises->get('avatar:ackbar');
-$future->transform('base64_decode');
 $future->transform('gzuncompress');
+$future->transform('base64_decode');
 ```
 
 As seen before, `bind()` and `transform()` may be used by the same future.  It does not matter which order they are executed, transformations _always_ precede bind.  The bound variable will recieve the final result after all transformations have run.
@@ -139,7 +137,7 @@ Similar to `bind()`, a caller may be notified when a Future receives its final r
 ```php
 $future = $promises->sismeber('friends:of:jeff', 'ackbar');
 $future->onFulfilled(function ($sismember) {
-  echo "Ackbar is Jeff's friend: " . ($sismember) ? 'YES' : 'NO';
+  echo "Ackbar is Jeff's friend? " . ($sismember) ? 'YES' : 'NO';
 });
 ```
 
@@ -155,12 +153,13 @@ Multiple `\Deferred\Future` objects may be _reduced_ to a single Future.  This i
  */
 function loadUserProfile($promises, $userid)
 {
-  $email = $promises->hget("user:$userid", 'email');
-  $name = $promises->get("username:$userid");
-  $avatar = $promises->hget("avatar:$userid");
-  $avatar->transform('base64_decode');
+  $email =  $promises->hget("user:$userid", 'email');
+  $name =   $promises->get("username:$userid");
+  $avatar = $promises->hget("avatar:$userid")->transform('base64_decode');
 
   $user_profile = $promises->reduce($email, $name, $avatar);
+
+  // a reduced Future may be transformed and bound to like other Futures
   $user_profile->transform(function ($reduced) {
     $instance = new UserProfile($reduced[0], $reduced[1]); // email, name
     $instance->setAvatar($reduced[2]);
@@ -174,18 +173,22 @@ function loadUserProfile($promises, $userid)
 }
 ```
 
-Here the three elements (`$email`, `$name`,  `$avatar`) are reduced to a single Future (`$user_profile`).  The `$avatar` Future has a transformation converting the value from Base64 to binary; the reduced `$user_profile` Future has a transformation using the three disparate elements to initialize a `UserProfile` object.
+Here the three elements (`$email`, `$name`,  `$avatar`) are reduced to a single Future (`$user_profile`).  When fulfilled, the result of the reduced Future is an array of each individual result in index order.  (For this example, an array containing the user's email, name, and avatar.)
+
+The reduced Future is like any other Future.  Callers can use `bind()`, `transform()`, and `onFulfilled()`.
+
+Here the reduced `$user_profile` Future has a transformation combining the three elements to initialize a `UserProfile` object.  In other words, the disparate data elements are reduced to a Future that produces a `UserProfile` object.
 
 Code calling `loadUserProfile()` only needs to know that the returned `\Deferred\Future` will hold a `UserProfile` once fulfilled:
 
 ```php
 $promises = new \Deferred\PromisesTransaction($redis);
 
-$user_profile = loadUserProfile($promises, 'ackbar');
+$user_profile_future = loadUserProfile($promises, 'ackbar');
 
 $promises->execute();
 
-return $user_profile->value();
+$user_profile = $user_profile_future->value();
 ```
 
 ## Coding practices
@@ -204,9 +207,9 @@ $promises->hget('avatar:ackbar')->transform('base64_decode')->bind($avatar)->onF
 
 When executed, the above operations are completed in this order:
 
-1. `base64_decode`
-2. `$avatar` receives the final value (due to `bind()`)
-3. the `onFulfilled()` callbacks are executed
+1. transformations are performed: `base64_decode`
+2. bindings are completed: `$avatar` receives the final value
+3. `onFulfilled()` callbacks are executed
 
 `transform()`, `bind()`, and `onFulfilled()` may be called in any order, but the above order is guaranteed when the Future is fulfilled.
 
@@ -214,36 +217,38 @@ When executed, the above operations are completed in this order:
 
 A caller could essentially emulate the behavior of `bind()` with `onFulfilled()`.  Why the duplication?
 
-`bind()` is intended as a convenience for the caller.  PHP's inline functions are clumsy and awkward, and callers will often only need the Redis value without wanting to code a lot of boilerplate to load it into a particular location.
+`bind()` is intended as a convenience for the caller.  PHP's inline functions are awkward and verbose.  Often callers will only need the Redis value without wanting to code a lot of boilerplate to store it in a particular location.
 
-`onFulfilled()` is intended for more complex or observer functionality where certain code needs to be executed upon completion.  For example: notifications, monitoring, statistics gathering, logging, etc.
+`onFulfilled()` is intended for more complex observer code that needs to be executed upon completion.  For example, notifications, monitoring, statistics gathering, logging, etc.
 
 Because only one variable may be registered with `bind()`, the practice is to allow whichever code calls `\Deferred\Promises::execute()` to bind its PHP variables to the Futures.  Other intermediate code should use `onFulfilled()` for notifications.
 
 ### Guaranteeing transactionality
 
-Deferred makes it easy to encapsulate Redis code and isolate functionality to distinct functions.  However, some code may _require_ transactions (while other code may be indifferent).  Generally code is not concerned if the transaction is pipelined or not—it's a performance consideration—but must require atomicity in order to meet contract.
+Deferred makes it easy to encapsulate Redis code and isolate functionality.  However, some code may _require_ transactions (while other code may be indifferent).  Generally code is not concerned if the transaction is pipelined or not—it's a performance consideration—but often must require atomicity in order to meet contract.
 
-Deferred offers a solution to this problem.  All three styles of promises (`PipelinePromises`, `TransactionPromises`, and `AtomicPromisesPipeline`) all descend from a common `\Deferred\Promises` abstract class.  However, only `TransactionPromises` and `AtomicPromisesPipeline` descend from the `AtomicPromises` class.
+Deferred offers a solution to this problem.  All three styles of promises (`PipelinePromises`, `TransactionPromises`, and `AtomicPromisesPipeline`) all descend from a common `\Deferred\Promises` abstract class.  However, only `TransactionPromises` and `AtomicPromisesPipeline` descend from the abstract `AtomicPromises` class.
 
-`AtomicPromises` guarantees transactionality.  This typing allows for this kind of code:
+`AtomicPromises` indicates transactions.  Type-checking allows for this kind of code:
 
 ```php
 function mustBeTransaction(\Deferred\AtomicPromises $promises, $userid) {
-  // ...
+  // ... do transaction ...
 }
 
 function mustAlsoBeTransaction($promises, $userid) {
-  if (!is_a($promies, \Deferred\AtomicPromises::class))
-    throw new Exception('Must be a transaction');
+  if (!is_a($promises, \Deferred\AtomicPromises::class))
+    throw new \InvalidArgumentException('Must be a transaction');
+
+  // ... do transaction ...
 }
 ```
 
-In both cases, the code won't execute if a non-transactional Promise is passed.
+In both cases, the transaction code won't execute if a non-transactional Promise is passed.
 
 ### HMGET / HGETALL trick
 
-HMGET returns an indexed array (0, 1, 2, ...) while HGETALL returns an associative array keyed by hash fields ('name', 'email', etc.)  If you find yourself in a situation where one code path uses HMGET while the other uses HGETALL, you can "normalize" the results so they always look like HGETALL:
+HMGET returns an indexed array (`[ 0 => 'ackbar', 1 => 'ackbar@hell.com' ]`) while HGETALL returns an associative array keyed by hash fields (`['name' => 'ackbar', 'email' => 'ackbar@hell.com' ]`)  If you find yourself in a situation where one code path uses HMGET while the other uses HGETALL, you can normalize the results so they always look like HGETALL:
 
 ```php
 /**
@@ -267,8 +272,6 @@ function loadUserInfo($promises, $userid, array $fields = null)
 
 The `array_combine()` function takes the new array's keys (`$fields`) and its values (`$hmget`) and merges them into an associative array.
 
-No matter what the user passes for `$fields`, they'll always get an associative array in return.
-
 ## Unit tests
 
 A minimal suite of unit tests exist in the `tests\` directory.  They require [PHP-Unit](https://phpunit.de/) to execute (which can be loaded via [Composer](https://getcomposer.org/) using the .json file in the root of the repo).
@@ -278,6 +281,5 @@ __WARNING:__  The unit tests execute by connecting to a Redis server at network 
 ## More information
 
 * [Futures and promises (Wikipedia)](https://en.wikipedia.org/wiki/Futures_and_promises)
-* [Redis pipelining](https://redis.io/topics/pipelining)
-* [Redis transactions](https://redis.io/topics/transactions)
-
+* Redis [pipelining](https://redis.io/topics/pipelining) and [transactions](https://redis.io/topics/transactions)
+* Predis [pipelining & atomic pipelining](http://squizzle.me/php/predis/doc/#pipelining) and [transactions](http://squizzle.me/php/predis/doc/#transactions)
