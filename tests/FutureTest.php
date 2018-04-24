@@ -108,7 +108,7 @@ class FutureTest extends PHPUnit\Framework\TestCase
     $this->assertEquals('binding', $value);
   }
 
-  public function testOnFulfilled()
+  public function testWhenFulfilled()
   {
     $this->promises->set('abc', '1234');
     $future = $this->promises->get('abc');
@@ -116,7 +116,7 @@ class FutureTest extends PHPUnit\Framework\TestCase
     $future->transform('intval');
 
     $fulfilled = false;
-    $future->onFulfilled(function ($value) use (&$fulfilled) {
+    $future->whenFulfilled(function ($value) use (&$fulfilled) {
       $this->assertEquals(4321, $value);
       $fulfilled = true;
     });

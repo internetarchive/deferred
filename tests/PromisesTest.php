@@ -133,7 +133,7 @@ class PromisesTest extends PHPUnit\Framework\TestCase
     $reduced = $promises->reduce($f1, $f2);
 
     $fulfilled = false;
-    $reduced->onFulfilled(function ($results) use (&$fulfilled) {
+    $reduced->whenFulfilled(function ($results) use (&$fulfilled) {
       $this->assertTrue(is_array($results));
       $this->assertEquals(2, count($results));
       $this->assertEquals('value0', $results[0]);

@@ -136,12 +136,12 @@ Similar to `bind()`, a caller may be notified when a Future receives its final r
 
 ```php
 $future = $promises->sismeber('friends:of:jeff', 'ackbar');
-$future->onFulfilled(function ($sismember) {
+$future->whenFulfilled(function ($sismember) {
   echo "Ackbar is Jeff's friend? " . ($sismember) ? 'YES' : 'NO';
 });
 ```
 
-Unlike `bind()`, more than one callback may be registered with `onFulfilled()`.  Deferred makes no guarantees of the order they're executed.
+Unlike `bind()`, more than one callback may be registered with `whenFulfilled()`.  Deferred makes no guarantees of the order they're executed.
 
 ### Reducing Futures
 
@@ -175,7 +175,7 @@ function loadUserProfile($promises, $userid)
 
 Here the three elements (`$email`, `$name`,  `$avatar`) are reduced to a single Future (`$user_profile`).  When fulfilled, the result of the reduced Future is an array of each individual result in index order.  (For this example, an array containing the user's email, name, and avatar.)
 
-The reduced Future is like any other Future.  Callers can use `bind()`, `transform()`, and `onFulfilled()`.
+The reduced Future is like any other Future.  Callers can use `bind()`, `transform()`, and `whenFulfilled()`.
 
 Here the reduced `$user_profile` Future has a transformation combining the three elements to initialize a `UserProfile` object.  In other words, the disparate data elements are reduced to a Future that produces a `UserProfile` object.
 
@@ -199,7 +199,7 @@ Most of `\Deferred\Future`'s methods return `$this`, meaning you can use Fluent-
 
 ```php
 $avatar = null;
-$promises->hget('avatar:ackbar')->transform('base64_decode')->bind($avatar)->onFulfilled(function () {
+$promises->hget('avatar:ackbar')->transform('base64_decode')->bind($avatar)->whenFulfilled(function () {
   // report load event to monitoring service
   StatsD::increment('avatars-loaded');
 });
@@ -209,19 +209,19 @@ When executed, the above operations are completed in this order:
 
 1. transformations are performed: `base64_decode`
 2. bindings are completed: `$avatar` receives the final value
-3. `onFulfilled()` callbacks are executed
+3. `whenFulfilled()` callbacks are executed
 
-`transform()`, `bind()`, and `onFulfilled()` may be called in any order, but the above order is guaranteed when the Future is fulfilled.
+`transform()`, `bind()`, and `whenFulfilled()` may be called in any order, but the above order is guaranteed when the Future is fulfilled.
 
-### bind() versus onFulfilled()
+### bind() versus whenFulfilled()
 
-A caller could essentially emulate the behavior of `bind()` with `onFulfilled()`.  Why the duplication?
+A caller could essentially emulate the behavior of `bind()` with `whenFulfilled()`.  Why the duplication?
 
 `bind()` is intended as a convenience for the caller.  PHP's inline functions are awkward and verbose.  Often callers will only need the Redis value without wanting to code a lot of boilerplate to store it in a particular location.
 
-`onFulfilled()` is intended for more complex observer code that needs to be executed upon completion.  For example, notifications, monitoring, statistics gathering, logging, etc.
+`whenFulfilled()` is intended for more complex observer code that needs to be executed upon completion.  For example, notifications, monitoring, statistics gathering, logging, etc.
 
-Because only one variable may be registered with `bind()`, the practice is to allow whichever code calls `\Deferred\Promises::execute()` to bind its PHP variables to the Futures.  Other intermediate code should use `onFulfilled()` for notifications.
+Because only one variable may be registered with `bind()`, the practice is to allow whichever code calls `\Deferred\Promises::execute()` to bind its PHP variables to the Futures.  Other intermediate code should use `whenFulfilled()` for notifications.
 
 ### Guaranteeing transactionality
 

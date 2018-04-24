@@ -204,7 +204,7 @@ abstract class Promises
     foreach ($futures as $future) {
       // note that a reference to $responses is held by each lambda (as it's shared between them)
       // while the current value of $idx is "assigned" to each lambda via pass-by-value syntax
-      $future->onFulfilled(function ($result) use ($reduced, $future_count, &$responses, $idx) {
+      $future->whenFulfilled(function ($result) use ($reduced, $future_count, &$responses, $idx) {
         // add response to the index corresponding to its respective Future
         $responses[$idx] = $result;
 

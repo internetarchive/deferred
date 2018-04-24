@@ -224,7 +224,7 @@ class Future
    * @param callable $listener
    * @return \Deferred\Future This instance
    */
-  public function onFulfilled(callable $listener)
+  public function whenFulfilled(callable $listener)
   {
     $this->listeners[] = $listener;
 
