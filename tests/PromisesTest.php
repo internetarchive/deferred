@@ -145,4 +145,29 @@ class PromisesTest extends PHPUnit\Framework\TestCase
 
     $this->assertTrue($fulfilled);
   }
+
+  /**
+   * Tests the HGETALL/HMGET trick described in README.md.
+   */
+  public function testHgetallHmgetTrick()
+  {
+    $this->client->hset('hget-trick', 'a', 'first');
+    $this->client->hset('hget-trick', 'b', 'second');
+    $this->client->hset('hget-trick', 'c', 'third');
+
+    $promises = new \Deferred\PromisesPipeline($this->client);
+
+    $hgetall = null;
+    $promises->hgetall('hget-trick')->bind($hgetall);
+
+    $hmget = null;
+    $fields = [ 'a', 'b', 'c' ];
+    $promises->hmget('hget-trick', $fields)->bind($hmget)->transform(function ($result) use ($fields) {
+      return array_combine($fields, $result);
+    });
+
+    $promises->execute();
+
+    $this->assertEquals($hgetall, $hmget);
+  }
 }
