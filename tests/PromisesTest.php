@@ -70,6 +70,28 @@ class PromisesTest extends PHPUnit\Framework\TestCase
     $this->basicPromisesTest(new \Deferred\AtomicPromisesPipeline($this->client));
   }
 
+  /**
+   * Test that the three Promises concrete classes can be type-checked for atomicity.
+   *
+   * @dataProvider provideAtomicTypeChecking
+   */
+  public function testAtomicTypeChecking($promises_type, $is_atomic)
+  {
+    $this->assertEquals($is_atomic, is_a($promises_type, \Deferred\AtomicPromises::class, true));
+  }
+
+  /**
+   * Data provider for testAtomicTypeChecking().
+   */
+  public function provideAtomicTypeChecking()
+  {
+    return [
+      'PromisesPipeline' =>       [ \Deferred\PromisesPipeline::class, false ],
+      'PromisesTransaction' =>    [ \Deferred\PromisesTransaction::class, true ],
+      'AtomicPromisesPipline' =>  [ \Deferred\AtomicPromisesPipeline::class, true ],
+    ];
+  }
+
   public function testStateFunctions()
   {
     $promises = new \Deferred\PromisesPipeline($this->client);
