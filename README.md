@@ -6,7 +6,7 @@
 
 ## Introduction
 
-Deferred is a promises/futures PHP library for use with [Redis](https://redis.io) (via the [Predis client library](https://github.com/nrk/predis/)).  Deferred was presented at RedisConf 2018 in San Francisco.
+Deferred is a promises/futures PHP library for use with [Redis](https://redis.io) (via the [Predis client library](https://github.com/nrk/predis/)).  Deferred was presented at RedisConf 2018 in San Francisco.  The slides are available in the `doc/` directory.
 
 Predis supports multiple methods of scheduling operations so they may be issued to the server in batches: pipelines, transactions, and atomic pipelines.  Deferred builds on top of these methods by binding operation results to Future objects which may be monitored by the client code.
 
