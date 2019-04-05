@@ -1,6 +1,6 @@
 # Deferred: Redis promises and futures for Predis / PHP
 
-* Jim Nelson <jnelson@archive.org>
+* Jim Nelson <<jnelson@archive.org>>
 * Internet Archive
 * Presented at RedisConf 2018
 
