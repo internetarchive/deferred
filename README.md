@@ -283,3 +283,10 @@ __WARNING:__  The unit tests execute by connecting to a Redis server at network 
 * [Futures and promises (Wikipedia)](https://en.wikipedia.org/wiki/Futures_and_promises)
 * Redis [pipelining](https://redis.io/topics/pipelining) and [transactions](https://redis.io/topics/transactions)
 * Predis [pipelining & atomic pipelining](http://squizzle.me/php/predis/doc/#pipelining) and [transactions](http://squizzle.me/php/predis/doc/#transactions)
+
+## Other projects
+
+Some of the other Redis-related projects I've presented at RedisConf:
+
+* [Work Stealing](https://github.com/internetarchive/work-stealing): Use spare cycles to complete background work
+* [XFetch](https://github.com/internetarchive/xfetch): Early probabilistic recompute to prevent cache stampede
